@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.work.*
 import java.util.concurrent.TimeUnit
@@ -22,6 +23,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun TikTokSoloApp() {
+    val context = LocalContext.current
     var topic by remember { mutableStateOf("") }
     var duration by remember { mutableStateOf("60") }
     var status by remember { mutableStateOf("Prêt") }
@@ -44,7 +46,7 @@ private fun TikTokSoloApp() {
                 }
                 item {
                     OutlinedButton(onClick = {
-                        scheduleDaily(this@TikTokSoloAppContextHolder.context)
+                        scheduleDaily(context)
                         status = "Automatisation quotidienne activée"
                     }, modifier = Modifier.fillMaxWidth()) { Text("Automatiser chaque jour") }
                 }
@@ -59,8 +61,4 @@ private fun TikTokSoloApp() {
 private fun scheduleDaily(context: android.content.Context) {
     val request = PeriodicWorkRequestBuilder<DailyVideoWorker>(24, TimeUnit.HOURS).build()
     WorkManager.getInstance(context).enqueueUniquePeriodicWork("daily_tiktok_solo", ExistingPeriodicWorkPolicy.UPDATE, request)
-}
-
-private object TikTokSoloAppContextHolder {
-    lateinit var context: android.content.Context
 }
