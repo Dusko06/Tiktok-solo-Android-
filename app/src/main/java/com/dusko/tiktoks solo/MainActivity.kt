@@ -1,7 +1,10 @@
 package com.dusko.tiktokssolo
 
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -28,27 +31,58 @@ private fun TikTokSoloApp() {
     var duration by remember { mutableStateOf("60") }
     var status by remember { mutableStateOf("Prêt") }
     val jobs = remember { mutableStateListOf<String>() }
+    val selectedMedia = remember { mutableStateListOf<Uri>() }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        selectedMedia.clear()
+        selectedMedia.addAll(uris)
+        status = if (uris.isEmpty()) "Aucun média sélectionné" else "${uris.size} média(s) sélectionné(s)"
+    }
 
     MaterialTheme {
         Scaffold(topBar = { TopAppBar(title = { Text("TikTok SOLO") }) }) { padding ->
-            LazyColumn(modifier = Modifier.padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            LazyColumn(
+                modifier = Modifier.padding(padding).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 item {
                     Text("Générateur vidéo automatisé", style = MaterialTheme.typography.headlineSmall)
-                    Text("Crée une vidéo verticale 9:16 à partir d'un sujet.")
+                    Text("Galerie Samsung → montage → MP4 9:16")
+                }
+                item {
+                    Button(
+                        onClick = { galleryLauncher.launch(arrayOf("image/*", "video/*")) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Choisir depuis la Galerie Samsung") }
+                }
+                item {
+                    if (selectedMedia.isNotEmpty()) {
+                        Text("Médias sélectionnés : ${selectedMedia.size}")
+                        Text("Ils seront utilisés comme sources du montage.")
+                    }
                 }
                 item { OutlinedTextField(topic, { topic = it }, label = { Text("Sujet") }, modifier = Modifier.fillMaxWidth()) }
                 item { OutlinedTextField(duration, { duration = it.filter(Char::isDigit) }, label = { Text("Durée cible (secondes)") }, modifier = Modifier.fillMaxWidth()) }
                 item {
-                    Button(enabled = topic.isNotBlank(), onClick = {
-                        jobs.add("${topic.trim()} — ${duration.ifBlank { "60" }} s")
-                        status = "Projet ajouté"
-                    }, modifier = Modifier.fillMaxWidth()) { Text("Créer la vidéo") }
+                    Button(
+                        enabled = topic.isNotBlank() && selectedMedia.isNotEmpty(),
+                        onClick = {
+                            jobs.add("${topic.trim()} — ${duration.ifBlank { "60" }} s — ${selectedMedia.size} média(s)")
+                            status = "Projet ajouté — montage à venir"
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Créer la vidéo") }
                 }
                 item {
-                    OutlinedButton(onClick = {
-                        scheduleDaily(context)
-                        status = "Automatisation quotidienne activée"
-                    }, modifier = Modifier.fillMaxWidth()) { Text("Automatiser chaque jour") }
+                    OutlinedButton(
+                        onClick = {
+                            scheduleDaily(context)
+                            status = "Automatisation quotidienne activée"
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Automatiser chaque jour") }
                 }
                 item { Text("État : $status") }
                 item { Text("Projets", style = MaterialTheme.typography.titleMedium) }
@@ -60,5 +94,9 @@ private fun TikTokSoloApp() {
 
 private fun scheduleDaily(context: android.content.Context) {
     val request = PeriodicWorkRequestBuilder<DailyVideoWorker>(24, TimeUnit.HOURS).build()
-    WorkManager.getInstance(context).enqueueUniquePeriodicWork("daily_tiktok_solo", ExistingPeriodicWorkPolicy.UPDATE, request)
+    WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+        "daily_tiktok_solo",
+        ExistingPeriodicWorkPolicy.UPDATE,
+        request
+    )
 }
